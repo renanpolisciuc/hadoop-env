@@ -1,0 +1,25 @@
+{
+    "tableName": "logs",
+    "schemaName": "default",
+    "topicName": "logs",
+    "message": {
+        "dataFormat": "json",
+        "fields": [
+            {
+                "name": "ip",
+                "mapping": "requestIp",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "path",
+                "mapping": "requestPath",
+                "type": "VARCHAR"
+            },
+            {
+                "name": "status",
+                "mapping": "httpStatus",
+                "type": "BIGINT"
+            }
+        ]
+    }
+}

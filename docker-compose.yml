@@ -1,0 +1,135 @@
+version: '3.8'
+services:
+  hadoop-namenode:
+    container_name: hadoop-namenode
+    build: ./images/hadoop/namenode
+    volumes:
+      - ./images/hadoop/namenode/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./images/hadoop/namenode/hdfs-site.xml:/hadoop/etc/hadoop/hdfs-site.xml
+      - ./images/hadoop/namenode/hadoop-env.sh:/hadoop/etc/hadoop/hadoop-env.sh
+    ports:
+      - 50070:50070
+      - 9870:9870
+    networks:
+      - data
+
+  hadoop-datanode01:
+    container_name: hadoop-datanode01
+    depends_on:
+      - hadoop-namenode
+      - hadoop-resource-manager
+    build: ./images/hadoop/datanode
+    volumes:
+      - ./images/hadoop/datanode/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./images/hadoop/datanode/hdfs-site.xml:/hadoop/etc/hadoop/hdfs-site.xml
+      - ./images/hadoop/datanode/hadoop-env.sh:/hadoop/etc/hadoop/hadoop-env.sh
+      - ./images/hadoop/datanode/yarn-site.xml:/hadoop/etc/hadoop/yarn-site.xml
+      - ./images/hadoop/datanode/run.sh:/hadoop/run.sh
+    networks:
+      - data
+  
+  hadoop-resource-manager:
+    container_name: hadoop-resource-manager
+    build: ./images/hadoop/resource-manager
+    volumes:
+      - ./images/hadoop/resource-manager/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./images/hadoop/resource-manager/hadoop-env.sh:/hadoop/etc/hadoop/hadoop-env.sh
+      - ./images/hadoop/resource-manager/yarn-site.xml:/hadoop/etc/hadoop/yarn-site.xml
+    ports:
+      - 8088:8088
+    networks:
+      - data
+
+  zookeeper:
+    image: bitnami/zookeeper
+    container_name: zookeeper
+    environment: 
+      ALLOW_ANONYMOUS_LOGIN: 'yes'
+    ports:
+      - 2181:2181
+    networks:
+      - data
+
+  kafka_admin:
+    image: obsidiandynamics/kafdrop
+    depends_on:
+      - kafka01
+    environment:
+      KAFKA_BROKERCONNECT: 'kafka01:9092'
+    ports:
+      - 9005:9000
+    networks:
+      - data
+  
+  kafka01:
+    image: bitnami/kafka
+    container_name: kafka01
+    depends_on:
+      - zookeeper
+    environment: 
+      KAFKA_CFG_BROKER_ID: 1
+      KAFKA_CFG_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CFG_LISTENERS: INTERNAL://:9092,EXTERNAL://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: INTERNAL://kafka01:9092,EXTERNAL://localhost:9093
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+    ports:
+      - 9092:9092
+      - 9093:9093
+    networks:
+      - data
+
+  flume:
+    build: ./images/flume     
+    container_name: flume-agent
+    depends_on:
+      - kafka01
+      - hadoop-namenode
+    environment: 
+      FLUME_AGENT_NAME: flume-agent
+    volumes: 
+      - ./configs/core-site.xml:/hadoop/etc/hadoop/core-site.xml
+      - ./configs/flume.conf:/flume/example.conf
+    networks:
+      - data
+  
+  presto:
+    build: ./images/presto
+    container_name: presto-agent
+    ports:
+      - 8085:8080
+    volumes:
+      - ./images/presto/etc:/presto/etc
+    networks:
+      - data
+
+  hive:
+    build: ./images/hive
+    container_name: hive-agent
+    depends_on: 
+      - hadoop-namenode
+    ports:
+      - 10000:10000
+      - 10002:10002
+    volumes:
+      - ./configs/core-site.xml:/worker/hadoop/etc/hadoop/core-site.xml
+      - ./configs/hadoop-env.sh:/worker/hadoop/etc/hadoop/hadoop-env.sh
+      - ./configs/hive:/worker/hive/conf
+      - ./images/hive/run.sh:/worker/run.sh
+    networks:
+      - data
+
+  mysql:
+    image: mysql:5.7.31
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: bigdata
+      MYSQL_DATABASE: hive_db
+    networks:
+      - data
+    
+networks:
+  data:
+    driver: bridge

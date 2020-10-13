@@ -1,0 +1,9 @@
+{
+    "catalogs": [
+      {
+        "user": "admin",
+        "catalog": "(hive|system|kafka)",
+        "allow": true
+      }
+    ]
+  }
